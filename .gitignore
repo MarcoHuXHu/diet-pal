@@ -101,3 +101,11 @@ ENV/
 .mypy_cache/
 
 .idea/workspace.xml
+
+.idea/vcs.xml
+
+.idea/diet-pal.iml
+
+.idea/misc.xml
+
+.idea/modules.xml
