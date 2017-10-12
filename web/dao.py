@@ -37,7 +37,7 @@ async def select(sql, args, size=None):
 async def execute(sql, args, autocommit=True):
     logging.info('SQL: %s' % sql)
     global __pool
-    async with __pool.acquire as connection:
+    async with __pool.acquire() as connection:
         if not autocommit:
             await connection.begin()
         cur = await connection.cursor(aiomysql.DictCursor)
@@ -88,11 +88,11 @@ class ModelMetaclass(type):
         # 如果Model层的类没有给定__table__，则以类名为默认值
         tableName = attrs.get('__table__', None) or name
         mappings = dict()
-        # fields用来保存非primaryKey的列名，primaryKey用来保存primaryKey的列名，这俩好像没啥用
-        fields = []; primaryKey = None
+        # fields用来保存非primaryKey的列名，primaryKey用来保存primaryKey的列名，储存primaryKey主要是为了Delete的时候方便
+        fields = []
+        primaryKey = None
         for k, v in attrs.items():
             if isinstance(v, Field):
-                print('Found mapping: %s ==> %s' % (k, v))
                 mappings[k] = v
                 if v.primary_key:
                     if primaryKey:
@@ -106,15 +106,18 @@ class ModelMetaclass(type):
         for k in mappings.keys():
             attrs.pop(k)
 
-        escaped_fields = list(map(lambda f: '`%s`' % f, fields))
+        # SQL中列名由``包围，比如`user_id`
+        sql_fields = list(map(lambda f: '`%s`' % f, fields))
         attrs['__mappings__'] = mappings # 保存属性和列的映射关系
         attrs['__table__'] = name # 假设表名和类名一致
         attrs['__primary_key__'] = primaryKey  # 主键属性名
         attrs['__fields__'] = fields  # 除主键外的属性名
-        attrs['__select__'] = 'select `%s`, %s from `%s`' % (primaryKey, ', '.join(escaped_fields), tableName)
-        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values (%s)' % (tableName, ', '.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
-        attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (
-        tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
+        attrs['__select__'] = 'select `%s`, %s from `%s`' % \
+                              (primaryKey, ', '.join(sql_fields), tableName)
+        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values (%s)' % \
+                              (tableName, ', '.join(sql_fields), primaryKey, ('%s?') % ('?, '*len(sql_fields)))
+        attrs['__update__'] = 'update `%s` set %s where `%s`=?' % \
+                              (tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).column_name or f), fields)), primaryKey)
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
         return type.__new__(cls, name, bases, attrs)
 
@@ -127,22 +130,65 @@ class Model(dict, metaclass=ModelMetaclass):
         try:
             return self[key]
         except KeyError:
-            logging.error('KeyError: object has no attribute {0}'.format(key))
+            logging.info('Cannot find {0}'.format(key))
             return None
 
     def __setattr__(self, key, value):
         self[key] = value
 
+    # find和findByKey都是返回Model类型的方法，所以要用classmethod，而其他CRD操作只是返回操作结果，所以非classmethod
+    @classmethod
+    async def find(cls, where=None, args=None, **kw):
+        ' find objects by where clause. '
+        sql = [cls.__select__]
+        if where:
+            sql.append('where')
+            sql.append(where)
+        if args is None:
+            args = []
+        orderBy = kw.get('orderBy', None)
+        if orderBy:
+            sql.append('order by')
+            sql.append(orderBy)
+        limit = kw.get('limit', None)
+        if limit is not None:
+            sql.append('limit')
+            if isinstance(limit, int):
+                sql.append('?')
+                args.append(limit)
+            elif isinstance(limit, tuple) and len(limit) == 2:
+                sql.append('?, ?')
+                args.extend(limit)
+            else:
+                raise ValueError('Invalid limit value: %s' % str(limit))
+        rs = await select(' '.join(sql), args)
+        return [cls(**r) for r in rs]
 
+    @classmethod
+    async def findByKey(cls, pk):
+        ' find object by primary key. '
+        rs = await select('%s where `%s`=?' % (cls.__select__, cls.__primary_key__), [pk], 1)
+        if len(rs) == 0:
+            return None
+        return cls(**rs[0])
 
+    async def save(self):
+        args = list(map(self.__getattr__, self.__fields__))
+        args.append(self.__getattr__(self.__primary_key__))
+        rows = await execute(self.__insert__, args)
+        if rows != 1:
+            logging.error('failed to insert record: affected rows: %s' % rows)
 
+    async def change(self):
+        args = list(map(self.__getattr__, self.__fields__))
+        args.append(self.__getattr__(self.__primary_key__))
+        rows = await execute(self.__update__, args)
+        if rows != 1:
+            logging.error('failed to update by primary key: affected rows: %s' % rows)
 
+    async def remove(self):
+        args = [self.__getattr__(self.__primary_key__)]
+        rows = await execute(self.__delete__, args)
+        if rows != 1:
+            logging.error('failed to remove by primary key: affected rows: %s' % rows)
 
-
-def test():
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(create_connection(loop, db='awesome'))
-    rs = loop.run_until_complete(select('select * from user;', ()))
-    print(rs)
-
-test()
