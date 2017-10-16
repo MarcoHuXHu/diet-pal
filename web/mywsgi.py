@@ -28,6 +28,7 @@ post = functools.partial(request_method_decorator,method = 'POST')
 
 
 # 用RequestHandler()来封装一个URL处理函数
+# RequestHandler目的就是从URL函数中分析其需要接收的参数，从request中获取必要的参数，调用URL函数。
 class RequestHandler(object):
 
     def __init__(self, app, fn):
