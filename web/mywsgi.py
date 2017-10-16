@@ -10,72 +10,24 @@ from urllib import parse
 
 from aiohttp import web
 
-def get(path):
+def request_method_decorator(path, method):
     '''
-    Define decorator @get('/path')
-    '''
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kw):
-            return func(*args, **kw)
-        wrapper.__method__ = 'GET'
-        wrapper.__route__ = path
-        return wrapper
-    return decorator
-
-def post(path):
-    '''
-    Define decorator @post('/path')
+    Define decorator ('/path', 'get/post')
     '''
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kw):
             return func(*args, **kw)
-        wrapper.__method__ = 'POST'
         wrapper.__route__ = path
+        wrapper.__method__ = method
         return wrapper
     return decorator
 
-def get_required_kw_args(fn):
-    args = []
-    params = inspect.signature(fn).parameters
-    for name, param in params.items():
-        if param.kind == inspect.Parameter.KEYWORD_ONLY and param.default == inspect.Parameter.empty:
-            args.append(name)
-    return tuple(args)
+get = functools.partial(request_method_decorator,method = 'GET')
+post = functools.partial(request_method_decorator,method = 'POST')
 
-def get_named_kw_args(fn):
-    args = []
-    params = inspect.signature(fn).parameters
-    for name, param in params.items():
-        if param.kind == inspect.Parameter.KEYWORD_ONLY:
-            args.append(name)
-    return tuple(args)
 
-def has_named_kw_args(fn):
-    params = inspect.signature(fn).parameters
-    for name, param in params.items():
-        if param.kind == inspect.Parameter.KEYWORD_ONLY:
-            return True
-
-def has_var_kw_arg(fn):
-    params = inspect.signature(fn).parameters
-    for name, param in params.items():
-        if param.kind == inspect.Parameter.VAR_KEYWORD:
-            return True
-
-def has_request_arg(fn):
-    sig = inspect.signature(fn)
-    params = sig.parameters
-    found = False
-    for name, param in params.items():
-        if name == 'request':
-            found = True
-            continue
-        if found and (param.kind != inspect.Parameter.VAR_POSITIONAL and param.kind != inspect.Parameter.KEYWORD_ONLY and param.kind != inspect.Parameter.VAR_KEYWORD):
-            raise ValueError('request parameter must be the last named parameter in function: %s%s' % (fn.__name__, str(sig)))
-    return found
-
+# 用RequestHandler()来封装一个URL处理函数
 class RequestHandler(object):
 
     def __init__(self, app, fn):
@@ -87,6 +39,7 @@ class RequestHandler(object):
         self._named_kw_args = get_named_kw_args(fn)
         self._required_kw_args = get_required_kw_args(fn)
 
+    # RequestHandler是一个类，由于定义了__call__()方法，因此可以将其实例视为函数。
     async def __call__(self, request):
         kw = None
         if self._has_var_kw_arg or self._has_named_kw_args or self._required_kw_args:
@@ -144,6 +97,7 @@ def add_static(app):
     app.router.add_static('/static/', path)
     logging.info('add static %s => %s' % ('/static/', path))
 
+# add_route函数，用来注册一个URL处理函数
 def add_route(app, fn):
     method = getattr(fn, '__method__', None)
     path = getattr(fn, '__route__', None)
@@ -170,3 +124,43 @@ def add_routes(app, module_name):
             path = getattr(fn, '__route__', None)
             if method and path:
                 add_route(app, fn)
+
+def get_required_kw_args(fn):
+    args = []
+    params = inspect.signature(fn).parameters
+    for name, param in params.items():
+        if param.kind == inspect.Parameter.KEYWORD_ONLY and param.default == inspect.Parameter.empty:
+            args.append(name)
+    return tuple(args)
+
+def get_named_kw_args(fn):
+    args = []
+    params = inspect.signature(fn).parameters
+    for name, param in params.items():
+        if param.kind == inspect.Parameter.KEYWORD_ONLY:
+            args.append(name)
+    return tuple(args)
+
+def has_named_kw_args(fn):
+    params = inspect.signature(fn).parameters
+    for name, param in params.items():
+        if param.kind == inspect.Parameter.KEYWORD_ONLY:
+            return True
+
+def has_var_kw_arg(fn):
+    params = inspect.signature(fn).parameters
+    for name, param in params.items():
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            return True
+
+def has_request_arg(fn):
+    sig = inspect.signature(fn)
+    params = sig.parameters
+    found = False
+    for name, param in params.items():
+        if name == 'request':
+            found = True
+            continue
+        if found and (param.kind != inspect.Parameter.VAR_POSITIONAL and param.kind != inspect.Parameter.KEYWORD_ONLY and param.kind != inspect.Parameter.VAR_KEYWORD):
+            raise ValueError('request parameter must be the last named parameter in function: %s%s' % (fn.__name__, str(sig)))
+    return found
