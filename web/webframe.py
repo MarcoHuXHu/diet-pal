@@ -15,6 +15,8 @@ def request_method_decorator(path, method):
     Define decorator ('/path', 'get/post')
     '''
     def decorator(func):
+        # 使用functools模块的wraps装饰器，更正函数名
+        # 不然函数名，即__name__为wrapper，则之后调用inspect模块检查函数的参数就会有问题
         @functools.wraps(func)
         def wrapper(*args, **kw):
             return func(*args, **kw)
