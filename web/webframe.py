@@ -188,7 +188,7 @@ def add_static(app):
 # 而创建middleware类似于装饰器，通过一些middleware factory(协程函数)。
 # 这些middleware factory接受一个app实例，一个handler两个参数，并返回一个新的handler。
 
-# 函数返回值转化为web.response对象（最重要的一个middleware）
+# 函数返回值转化为web.response对象（必要的一个middleware）
 async def response_factory(app, handler):
     async def response_middleware(request):
         r = await handler(request)
@@ -199,15 +199,16 @@ async def response_factory(app, handler):
             resp.content_type = 'application/octet-stream'
             return resp
         if isinstance(r,str):
-            if r.startswith('redirect:'): #重定向
-                return web.HTTPFound(r[9:]) #转入别的网站
+            if r.startswith('redirect:'): # 重定向
+                return web.HTTPFound(r[9:]) # 转入别的网站
             resp =  web.Response(body=r.encode('utf-8'))
             resp.content_type = 'text/html;charsest=utf-8'
             return resp
         if isinstance(r,dict):
             template = r.get('__template__')
-            if template is None: #序列化JSON那章，传递数据
-                resp = web.Response(body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8')) #https://docs.python.org/2/library/json.html#basic-usage
+            if template is None: # 序列化JSON那章，传递数据
+                # https://docs.python.org/2/library/json.html#basic-usage
+                resp = web.Response(body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
                 return resp
             else: #jinja2模板
                 resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
