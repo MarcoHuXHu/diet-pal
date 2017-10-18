@@ -20,9 +20,3 @@ def test():
 
     u =  loop.run_until_complete(Macro_Nutrition.findByKey(1))
     print(u)
-
-
-
-
-
-test()

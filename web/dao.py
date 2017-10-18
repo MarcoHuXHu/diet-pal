@@ -139,7 +139,7 @@ class Model(dict, metaclass=ModelMetaclass):
     # find和findByKey都是返回Model类型的方法，所以要用classmethod，而其他CRD操作只是返回操作结果，所以非classmethod
     @classmethod
     async def find(cls, where=None, args=None, **kw):
-        ' find objects by where clause. '
+        #find objects by where clause.
         sql = [cls.__select__]
         if where:
             sql.append('where')
