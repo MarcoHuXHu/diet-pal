@@ -136,11 +136,19 @@ class RequestHandler(object):
             if name == 'request':
                 found = True
                 continue
-            if found and (param.kind != inspect.Parameter.VAR_POSITIONAL and param.kind != inspect.Parameter.KEYWORD_ONLY and param.kind != inspect.Parameter.VAR_KEYWORD):
+            if found and (param.kind != inspect.Parameter.VAR_POSITIONAL
+                          and param.kind != inspect.Parameter.KEYWORD_ONLY
+                          and param.kind != inspect.Parameter.VAR_KEYWORD):
                 raise ValueError(
-                    'request parameter must be the last named parameter in function: %s%s' % (fn.__name__, str(sig)))
+                    'request must be the last named parameter in function: %s%s' % (fn.__name__, str(sig)))
         return found
 
+
+# 添加静态文件夹的路径，类似于SimpleHTTPServer
+def add_static(app):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    app.router.add_static('/static/', path, show_index=True)
+    logging.info('add static %s => %s' % ('/static/', path))
 
 # add_route函数，用来注册一个URL处理函数
 # 主要起验证函数是否有包含URL的响应方法与路径信息，以及将函数变为协程。
@@ -152,7 +160,6 @@ def add_route(app, fn):
         raise ValueError('@get or @post not defined in %s.' % str(fn))
     if not asyncio.iscoroutinefunction(fn) and not inspect.isgeneratorfunction(fn):
         fn = asyncio.coroutine(fn)
-    logging.info('add route %s %s => %s(%s)' % (method, path, fn.__name__, ', '.join(inspect.signature(fn).parameters.keys())))
     app.router.add_route(method, path, RequestHandler(app, fn))
 
 # 直接导入文件，批量注册一个URL处理函数
@@ -172,12 +179,6 @@ def add_routes(app, module_name):
             path = getattr(fn, '__route__', None)
             if method and path:
                 add_route(app, fn)
-
-# 添加静态文件夹的路径，类似于SimpleHTTPServer
-def add_static(app):
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-    app.router.add_static('/static/', path)
-    logging.info('add static %s => %s' % ('/static/', path))
 
 
 # middleware
@@ -208,7 +209,8 @@ async def response_factory(app, handler):
             template = r.get('__template__')
             if template is None: # 序列化JSON那章，传递数据
                 # https://docs.python.org/2/library/json.html#basic-usage
-                resp = web.Response(body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
+                resp = web.Response(body=json.dumps(
+                    r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
                 return resp
             else: #jinja2模板
                 resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
