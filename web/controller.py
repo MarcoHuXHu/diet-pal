@@ -20,3 +20,12 @@ async def test(request):
         '__template__': 'test.html',
         'foods': foods
     }
+
+@get('/')
+async def index(request):
+    summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+    foods = await Macro_Nutrition.find()
+    return {
+        '__template__': 'foods.html',
+        'foods': foods
+    }
