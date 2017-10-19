@@ -17,6 +17,6 @@ async def hello(request):
 async def test(request):
     foods = await Macro_Nutrition.find()
     return {
-        '__template__': 'index.html',
+        '__template__': 'test.html',
         'foods': foods
     }
