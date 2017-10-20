@@ -1,6 +1,15 @@
 import asyncio, dao
 from dao import Model, IntegerField, StringField
 
+class User(Model):
+    __table__ = 'user'
+
+    user_id = IntegerField(primary_key=True, column_type='int')
+    username = StringField(column_type='varchar(50)')
+    password = StringField(column_type='varchar(50)')
+    email = StringField(column_type='varchar(50)')
+    nickname = StringField(column_type='varchar(50)')
+
 class Macro_Nutrition(Model):
     __table__ = 'macro_nutrition'
 

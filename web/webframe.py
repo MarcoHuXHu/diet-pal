@@ -29,6 +29,42 @@ get = functools.partial(request_method_decorator,method = 'GET')
 post = functools.partial(request_method_decorator,method = 'POST')
 
 
+# 添加静态文件夹的路径，类似于SimpleHTTPServer
+def add_static(app):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    app.router.add_static('/static/', path, show_index=True)
+    logging.info('add static %s => %s' % ('/static/', path))
+
+# add_route函数，用来注册一个URL处理函数
+# 主要起验证函数是否有包含URL的响应方法与路径信息，以及将函数变为协程。
+# 最终还是要通过aiohttp中web模块的router完成
+def add_route(app, fn):
+    method = getattr(fn, '__method__', None)
+    path = getattr(fn, '__route__', None)
+    if path is None or method is None:
+        raise ValueError('@get or @post not defined in %s.' % str(fn))
+    if not asyncio.iscoroutinefunction(fn) and not inspect.isgeneratorfunction(fn):
+        fn = asyncio.coroutine(fn)
+    app.router.add_route(method, path, RequestHandler(app, fn))
+
+# 直接导入文件，批量注册一个URL处理函数
+def add_routes(app, module_name):
+    n = module_name.rfind('.')
+    if n == (-1):
+        mod = __import__(module_name, globals(), locals())
+    else:
+        name = module_name[n+1:]
+        mod = getattr(__import__(module_name[:n], globals(), locals(), [name]), name)
+    for attr in dir(mod):
+        if attr.startswith('_'):
+            continue
+        fn = getattr(mod, attr)
+        if callable(fn):
+            method = getattr(fn, '__method__', None)
+            path = getattr(fn, '__route__', None)
+            if method and path:
+                add_route(app, fn)
+
 # 被add_route和add_routes调用，其中app是aiohttp中web模块的web.Application，
 # fn是指各个URL函数，放在controller中
 # 用RequestHandler()来封装一个URL处理函数
@@ -43,6 +79,51 @@ class RequestHandler(object):
         self._has_named_kw_args = self.has_named_kw_args(fn)
         self._named_kw_args = self.get_named_kw_args(fn)
         self._required_kw_args = self.get_required_kw_args(fn)
+
+    # 运用inspect模块，创建几个函数用以获取URL处理函数与request参数之间的关系
+    def get_required_kw_args(self, fn):
+        args = []
+        params = inspect.signature(fn).parameters
+        for name, param in params.items():
+            if param.kind == inspect.Parameter.KEYWORD_ONLY and param.default == inspect.Parameter.empty:
+                args.append(name)
+        return tuple(args)
+
+    def get_named_kw_args(self, fn):
+        args = []
+        params = inspect.signature(fn).parameters
+        for name, param in params.items():
+            if param.kind == inspect.Parameter.KEYWORD_ONLY:
+                args.append(name)
+        return tuple(args)
+
+    def has_named_kw_args(self, fn):
+        params = inspect.signature(fn).parameters
+        for name, param in params.items():
+            if param.kind == inspect.Parameter.KEYWORD_ONLY:
+                return True
+
+    def has_var_kw_args(self, fn):
+        params = inspect.signature(fn).parameters
+        for name, param in params.items():
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                return True
+
+    # 判断是否含有名叫'request'参数，且该参数是否为最后一个参数
+    def has_request_args(self, fn):
+        sig = inspect.signature(fn)
+        params = sig.parameters
+        found = False
+        for name, param in params.items():
+            if name == 'request':
+                found = True
+                continue
+            if found and (param.kind != inspect.Parameter.VAR_POSITIONAL
+                          and param.kind != inspect.Parameter.KEYWORD_ONLY
+                          and param.kind != inspect.Parameter.VAR_KEYWORD):
+                raise ValueError(
+                    'request must be the last named parameter in function: %s%s' % (fn.__name__, str(sig)))
+        return found
 
     # RequestHandler是一个类，由于定义了__call__()方法，因此可以将其实例视为函数。
     async def __call__(self, request):
@@ -97,88 +178,6 @@ class RequestHandler(object):
             return r
         except BaseException as e:
             return e #dict(error=e.error, data=e.data, message=e.message)
-
-    # 运用inspect模块，创建几个函数用以获取URL处理函数与request参数之间的关系
-    def get_required_kw_args(self, fn):
-        args = []
-        params = inspect.signature(fn).parameters
-        for name, param in params.items():
-            if param.kind == inspect.Parameter.KEYWORD_ONLY and param.default == inspect.Parameter.empty:
-                args.append(name)
-        return tuple(args)
-
-    def get_named_kw_args(self, fn):
-        args = []
-        params = inspect.signature(fn).parameters
-        for name, param in params.items():
-            if param.kind == inspect.Parameter.KEYWORD_ONLY:
-                args.append(name)
-        return tuple(args)
-
-    def has_named_kw_args(self, fn):
-        params = inspect.signature(fn).parameters
-        for name, param in params.items():
-            if param.kind == inspect.Parameter.KEYWORD_ONLY:
-                return True
-
-    def has_var_kw_args(self, fn):
-        params = inspect.signature(fn).parameters
-        for name, param in params.items():
-            if param.kind == inspect.Parameter.VAR_KEYWORD:
-                return True
-
-    # 判断是否含有名叫'request'参数，且该参数是否为最后一个参数
-    def has_request_args(self, fn):
-        sig = inspect.signature(fn)
-        params = sig.parameters
-        found = False
-        for name, param in params.items():
-            if name == 'request':
-                found = True
-                continue
-            if found and (param.kind != inspect.Parameter.VAR_POSITIONAL
-                          and param.kind != inspect.Parameter.KEYWORD_ONLY
-                          and param.kind != inspect.Parameter.VAR_KEYWORD):
-                raise ValueError(
-                    'request must be the last named parameter in function: %s%s' % (fn.__name__, str(sig)))
-        return found
-
-
-# 添加静态文件夹的路径，类似于SimpleHTTPServer
-def add_static(app):
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-    app.router.add_static('/static/', path, show_index=True)
-    logging.info('add static %s => %s' % ('/static/', path))
-
-# add_route函数，用来注册一个URL处理函数
-# 主要起验证函数是否有包含URL的响应方法与路径信息，以及将函数变为协程。
-# 最终还是要通过aiohttp中web模块的router完成
-def add_route(app, fn):
-    method = getattr(fn, '__method__', None)
-    path = getattr(fn, '__route__', None)
-    if path is None or method is None:
-        raise ValueError('@get or @post not defined in %s.' % str(fn))
-    if not asyncio.iscoroutinefunction(fn) and not inspect.isgeneratorfunction(fn):
-        fn = asyncio.coroutine(fn)
-    app.router.add_route(method, path, RequestHandler(app, fn))
-
-# 直接导入文件，批量注册一个URL处理函数
-def add_routes(app, module_name):
-    n = module_name.rfind('.')
-    if n == (-1):
-        mod = __import__(module_name, globals(), locals())
-    else:
-        name = module_name[n+1:]
-        mod = getattr(__import__(module_name[:n], globals(), locals(), [name]), name)
-    for attr in dir(mod):
-        if attr.startswith('_'):
-            continue
-        fn = getattr(mod, attr)
-        if callable(fn):
-            method = getattr(fn, '__method__', None)
-            path = getattr(fn, '__route__', None)
-            if method and path:
-                add_route(app, fn)
 
 
 # middleware

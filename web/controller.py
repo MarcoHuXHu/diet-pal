@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 
 from webframe import get, post
-from model import Macro_Nutrition
+from model import User, Macro_Nutrition
 
 #编写用于测试的URL处理函数
 @get('/hello')
 async def hello(request):
     user = 'World'
-    if 'user' in request.query:
-        user = request.query['user']
+    # parameters在request.rel_url.query或者request.query中
+    if 'user' in request.rel_url.query:
+        user = request.rel_url.query['user']
     body = '<h1>Hello {0}!</h1>'.format(user)
     return body
 
@@ -34,3 +35,10 @@ async def getAllFoods(request):
 async def api_getAllFoods(request):
     foods = await Macro_Nutrition.find()
     return dict(foods=foods)
+
+@get('/api/users')
+async def api_getAllUsers(request):
+    users = await User.find()
+    for user in users:
+        user.password = '******'
+    return dict(users=users)
