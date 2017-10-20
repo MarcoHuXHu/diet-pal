@@ -22,10 +22,15 @@ async def test(request):
     }
 
 @get('/')
-async def index(request):
-    summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
+async def getAllFoods(request):
     foods = await Macro_Nutrition.find()
     return {
         '__template__': 'foods.html',
         'foods': foods
     }
+
+# 对于返回json的api，只需要规定return的是dict，在webframe的response_middleware中就会把结果转化成json格式
+@get('/api/foods')
+async def api_getAllFoods(request):
+    foods = await Macro_Nutrition.find()
+    return dict(foods=foods)
