@@ -6,10 +6,9 @@ from model import User, Macro_Nutrition
 
 #编写用于测试的URL处理函数
 @get('/hello')
-async def hello(*kw, request):
+async def hello(request, **kw):
     # 如果这个函数有parameters，
     # 可以在signature中放入**kw，识别为VAR_KEYWORD（has_var_kw_args=True）如：hello(**kw, request)
-    # 可以在signature中放入*，识别为KEYWORD_ONLY（has_named_kw_args=True）如：hello(*, request)
     print(kw) # {'user': 'marco'}
     user = 'World'
     # parameters在request.rel_url.query或者request.query中，
@@ -28,8 +27,10 @@ async def test(request):
     }
 
 @get('/')
-async def getAllFoods(request):
-    foods = await Macro_Nutrition.find()
+async def index(request):
+    # foods = await Macro_Nutrition.find()
+    # 调用api来得到数据
+    foods = (await getAllFoods(request))['foods']
     return {
         '__template__': 'foods.html',
         'foods': foods
@@ -37,13 +38,14 @@ async def getAllFoods(request):
 
 # 对于返回json的api，只需要规定return的是dict，在webframe的response_middleware中就会把结果转化成json格式
 @get('/api/foods')
-async def api_getAllFoods(request):
+async def getAllFoods(request):
     foods = await Macro_Nutrition.find()
     return dict(foods=foods)
 
 @get('/api/users')
-async def api_getAllUsers(request):
+async def getAllUsers(request):
     users = await User.find()
     for user in users:
         user.password = '******'
     return dict(users=users)
+
