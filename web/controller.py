@@ -6,9 +6,14 @@ from model import User, Macro_Nutrition
 
 #编写用于测试的URL处理函数
 @get('/hello')
-async def hello(request):
+async def hello(*kw, request):
+    # 如果这个函数有parameters，
+    # 可以在signature中放入**kw，识别为VAR_KEYWORD（has_var_kw_args=True）如：hello(**kw, request)
+    # 可以在signature中放入*，识别为KEYWORD_ONLY（has_named_kw_args=True）如：hello(*, request)
+    print(kw) # {'user': 'marco'}
     user = 'World'
-    # parameters在request.rel_url.query或者request.query中
+    # parameters在request.rel_url.query或者request.query中，
+    # 参考webframe中：if request.method == 'GET':   qs = request.query_string
     if 'user' in request.rel_url.query:
         user = request.rel_url.query['user']
     body = '<h1>Hello {0}!</h1>'.format(user)
