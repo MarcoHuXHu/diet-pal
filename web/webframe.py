@@ -7,6 +7,7 @@
 import asyncio, os, inspect, logging, functools, json
 from urllib import parse
 from aiohttp import web
+from apis import APIError
 
 # 这个装饰器的目的是给URL函数加入两个属性，一个是path，即对应的URL，另一个是method，即get/post等
 # 这里的*是为了留给其他参数的，比如request等等
@@ -176,8 +177,8 @@ class RequestHandler(object):
         try:
             r = await self._func(**kw)
             return r
-        except BaseException as e:
-            return e #dict(error=e.error, data=e.data, message=e.message)
+        except APIError as e:
+            return dict(error=e.error, data=e.data, message=e.message)
 
 
 # middleware
@@ -206,7 +207,7 @@ async def response_factory(app, handler):
             return resp
         if isinstance(r,dict):
             template = r.get('__template__')
-            if template is None: # 序列化JSON那章，传递数据
+            if template is None: # 序列化JSON，传递数据
                 # https://docs.python.org/2/library/json.html#basic-usage
                 resp = web.Response(body=json.dumps(
                     r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
