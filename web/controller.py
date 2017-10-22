@@ -22,14 +22,8 @@ async def hello(request, **kw):
 async def index(request):
     # foods = await Macro_Nutrition.find()
     # 调用api来得到数据
-    foods = (await apis.getAllFoods())['foods']
+    foods = (await apis.getAllFoods(request))['foods']
     return {
         '__template__': 'foods.html',
         'foods': foods
-    }
-
-@get('/register')
-async def register():
-    return {
-        '__template__': 'register.html'
     }

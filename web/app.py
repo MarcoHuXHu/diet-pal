@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from webframe import add_route, add_routes, add_static
-from middlewares import response_factory
+from webframe import response_factory
 import dao
 
 import os

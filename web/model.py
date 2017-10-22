@@ -8,7 +8,7 @@ class User(Model):
     username = StringField(column_type='varchar(50)')
     password = StringField(column_type='varchar(50)')
     email = StringField(column_type='varchar(50)')
-    phone = StringField(column_type='varchar(50)')
+    nickname = StringField(column_type='varchar(50)')
 
 class Macro_Nutrition(Model):
     __table__ = 'macro_nutrition'
@@ -27,6 +27,5 @@ def test():
     loop = asyncio.get_event_loop()
     loop.run_until_complete(dao.create_connection(loop, db='diet_pal'))
 
-    u =  loop.run_until_complete(Macro_Nutrition.find('food_name=? or protein>?', ['Whey', 10]))
+    u =  loop.run_until_complete(Macro_Nutrition.findByKey(1))
     print(u)
-

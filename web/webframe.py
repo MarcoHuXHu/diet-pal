@@ -4,9 +4,10 @@
 # 考虑到app.py中利用的是aiohttp，在绑定url和对应方法，以及返回response方面比较复杂
 # 这里对aiohttp进行封装，DIY一个web framework来
 
-import asyncio, os, inspect, logging, functools
+import asyncio, os, inspect, logging, functools, json
 from urllib import parse
 from aiohttp import web
+from apis import APIError
 
 # 这个装饰器的目的是给URL函数加入两个属性，一个是path，即对应的URL，另一个是method，即get/post等
 # 这里的*是为了留给其他参数的，比如request等等
@@ -188,29 +189,41 @@ class RequestHandler(object):
 # 而创建middleware类似于装饰器，通过一些middleware factory(协程函数)。
 # 这些middleware factory接受一个app实例，一个handler两个参数，并返回一个新的handler。
 
-
-class APIError(Exception):
-    ''' 基础的APIError，包含错误类型(必要)，数据(可选)，信息(可选) '''
-    def __init__(self, error, data='', message=''):
-        super(APIError, self).__init__(message)
-        self.error = error
-        self.data = data
-        self.message = message
-
-
-class APIValueError(APIError):
-    ''' 表明输入数据有问题，data说明输入的错误字段 '''
-    def __init__(self, field, message=''):
-        super(APIValueError, self).__init__('Value: Invalid', field, message)
-
-
-class APIResourceError(APIError):
-    ''' 表明找不到资源，data说明资源名字 '''
-    def __init__(self,field,message = ''):
-        super(APIResourceError,self).__init__('Value: Not Found',field,message)
-
-
-class APIPermissionError(APIError):
-    ''' 接口没有权限 '''
-    def __init__(self,message = ''):
-        super(APIPermissionError,self).__init__('Permission: forbidden','Permission',message)
+# 函数返回值转化为web.response对象（必要的一个middleware）
+async def response_factory(app, handler):
+    async def response_middleware(request):
+        r = await handler(request)
+        if isinstance(r, web.StreamResponse):
+            return r
+        if isinstance(r, bytes):
+            resp = web.Response(body=r)
+            resp.content_type = 'application/octet-stream'
+            return resp
+        if isinstance(r,str):
+            if r.startswith('redirect:'): # 重定向
+                return web.HTTPFound(r[9:]) # 转入别的网站
+            resp =  web.Response(body=r.encode('utf-8'))
+            resp.content_type = 'text/html;charsest=utf-8'
+            return resp
+        if isinstance(r,dict):
+            template = r.get('__template__')
+            if template is None: # 序列化JSON，传递数据
+                # https://docs.python.org/2/library/json.html#basic-usage
+                resp = web.Response(body=json.dumps(
+                    r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
+                return resp
+            else: #jinja2模板
+                resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
+                resp.content_type = 'text/html;charset=utf-8'
+                return resp
+        if isinstance(r, int) and r >= 100 and r < 600:
+            return web.Response(r)
+        if isinstance(r, tuple) and len(r) == 2:
+            t, m = r
+            if isinstance(t, int) and t >= 100 and t < 600:
+                return web.Response(t, str(m))
+        # default，错误
+        resp = web.Response(body=str(r).encode('utf-8'))
+        resp.content_type = 'text/plain;charset=utf-8'
+        return resp
+    return response_middleware
