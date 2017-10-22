@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from model import User, Macro_Nutrition
-from webframe import get, post
+from webframe import get, post, APIError, APIPermissionError, APIResourceError, APIValueError
+import re, hashlib
 
 
 # 对于返回json的api，只需要规定return的是dict，在webframe的response_middleware中就会把结果转化成json格式
@@ -18,36 +19,24 @@ async def getAllUsers():
         user.password = '******'
     return dict(users=users)
 
-@post('api/register')
-async def registerUser(username, password, email, nickname):
-    pass
-
-
-
-
-
-class APIError(Exception):
-    ''' 基础的APIError，包含错误类型(必要)，数据(可选)，信息(可选) '''
-    def __init__(self, error, data='', message=''):
-        super(APIError, self).__init__(message)
-        self.error = error
-        self.data = data
-        self.message = message
-
-
-class APIValueError(APIError):
-    ''' 表明输入数据有问题，data说明输入的错误字段 '''
-    def __init__(self, field, message=''):
-        super(APIValueError, self).__init__('Value: Invalid', field, message)
-
-
-class APIResourceError(APIError):
-    ''' 表明找不到资源，data说明资源名字 '''
-    def __init__(self,field,message = ''):
-        super(APIResourceError,self).__init__('Value: Not Found',field,message)
-
-
-class APIPermissionError(APIError):
-    ''' 接口没有权限 '''
-    def __init__(self,message = ''):
-        super(APIPermissionError,self).__init__('Permission: forbidden','Permission',message)
+@post('/api/registerUser')
+async def registerUser(*, username, password, email, phone):
+    _RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
+    _RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
+    username = username.strip()
+    if not username:
+        raise APIError('username')
+    password = password.strip()
+    if not password or not _RE_SHA1.match(password):
+        raise APIError('password')
+    email = email.strip()
+    if not email or not _RE_EMAIL.match(email):
+        raise APIError('email')
+    users = await User.find('username=? or email=?', [username, email])
+    if len(users) > 0:
+        raise APIError('register:failed', '', 'Email or Username is already in use.')
+    sp = hashlib.sha1()
+    sp.update(password)
+    user = User(username=username, email=email, password=password, phone=phone)
+    # await user.save()
+    return dict(user=user)
