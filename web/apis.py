@@ -27,7 +27,7 @@ async def registerUser(*, username, password, email, phone):
     if not username:
         raise APIError('username')
     password = password.strip()
-    if not password or not _RE_SHA1.match(password):
+    if not password:# or not _RE_SHA1.match(password):
         raise APIError('password')
     email = email.strip()
     if not email or not _RE_EMAIL.match(email):
@@ -36,7 +36,7 @@ async def registerUser(*, username, password, email, phone):
     if len(users) > 0:
         raise APIError('register:failed', '', 'Email or Username is already in use.')
     sp = hashlib.sha1()
-    sp.update(password)
-    user = User(username=username, email=email, password=password, phone=phone)
+    sp.update(password.encode('utf-8'))
+    user = User(username=username, email=email, password=sp.hexdigest(), phone=phone)
     # await user.save()
     return dict(user=user)

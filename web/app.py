@@ -21,6 +21,7 @@ async def init(loop):
     # 初始化Jinja2，这里值得注意是设置文件路径的path参数
     init_jinja2(app, path=path+r'/templates')#,filters=dict(datetime=datetime_filter))
     add_routes(app, 'controller')
+    add_routes(app, 'apis')
     add_static(app)
     srv = await loop.create_server(app.make_handler(), '127.0.0.1', 9000)
     logging.info('Server started at http://127.0.0.1:9000...')
