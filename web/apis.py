@@ -3,7 +3,8 @@
 
 from model import User, Macro_Nutrition
 from webframe import get, post, APIError, APIPermissionError, APIResourceError, APIValueError
-import re, hashlib
+from aiohttp import web
+import re, hashlib, json
 
 
 # 对于返回json的api，只需要规定return的是dict，在webframe的response_middleware中就会把结果转化成json格式
@@ -40,4 +41,10 @@ async def registerUser(*, username, password, email, phone):
     sp.update(password.encode('utf-8'))
     user = User(username=username, email=email, password=sp.hexdigest(), phone=phone)
     await user.save()
-    return dict(user=user)
+    # make session cookie:
+    r = web.Response()
+    r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
+    user.passwd = '******'
+    r.content_type = 'application/json'
+    r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
+    return r

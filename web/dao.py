@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import asyncio, aiomysql, logging
+import time, uuid
 
 async def create_connection(loop, **kwargs):
     logging.info('create database connection pool...')
@@ -52,33 +53,37 @@ async def execute(sql, args, autocommit=True):
             raise
         return affected
 
+# 用来生成id，取代数据库中自增的id号
+def generate_uid():
+    return '%015d%s000' % (int(time.time() * 1000), uuid.uuid4().hex)
 
 # 各种数据库中数据类型的基类
 class Field(object):
-    def __init__(self, column_name, column_type, primary_key):
+    def __init__(self, column_name, column_type, primary_key, default):
         self.column_name = column_name
         self.column_type = column_type
         self.primary_key = primary_key
+        self.default = default
 
     def __str__(self):
         return '<%s, %s:%s>' % (self.__class__.__name__, self.column_name, self.column_type)
 
 # 各种数据库中数据类型相关的类
 class StringField(Field):
-    def __init__(self, column_name=None, column_type ='VARCHAR(50)', primary_key=False):
-        super().__init__(column_name, column_type, primary_key)
+    def __init__(self, column_name=None, column_type ='VARCHAR(50)', primary_key=False, default=None):
+        super().__init__(column_name, column_type, primary_key, default)
 
 class IntegerField(Field):
-    def __init__(self, column_name=None, column_type ='INT', primary_key=False):
-        super().__init__(column_name, column_type, primary_key)
+    def __init__(self, column_name=None, column_type ='INT', primary_key=False, default=None):
+        super().__init__(column_name, column_type, primary_key, default)
 
 class FloatField(Field):
-    def __init__(self, column_name=None, column_type ='FLOAT', primary_key=False):
-        super().__init__(column_name, column_type, primary_key)
+    def __init__(self, column_name=None, column_type ='FLOAT', primary_key=False, default=None):
+        super().__init__(column_name, column_type, primary_key, default)
 
 class TextField(Field):
-    def __init__(self, column_name=None, column_type ='TEXT', primary_key=False):
-        super().__init__(column_name, column_type, primary_key)
+    def __init__(self, column_name=None, column_type ='TEXT', primary_key=False, default=None):
+        super().__init__(column_name, column_type, primary_key, default)
 
 
 class ModelMetaclass(type):
@@ -130,7 +135,11 @@ class Model(dict, metaclass=ModelMetaclass):
         try:
             return self[key]
         except KeyError:
-            logging.info('Cannot find {0}'.format(key))
+            field = self.__mappings__[key]
+            if field.default is not None:
+                logging.info(r"Use default value for '{0}'".format(key))
+                return field.default
+            logging.info(r"'Model' object has no attribute '{0}'".format(key))
             return None
 
     def __setattr__(self, key, value):
