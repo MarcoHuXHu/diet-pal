@@ -6,7 +6,7 @@ import apis
 
 #编写用于测试的URL处理函数
 @get('/hello')
-async def hello(request, **kw):
+def hello(request, **kw):
     # 如果这个函数有parameters，
     # 可以在signature中放入**kw，识别为VAR_KEYWORD（has_var_kw_args=True）如：hello(**kw, request)
     print(kw) # {'user': 'marco'}
@@ -21,7 +21,7 @@ async def hello(request, **kw):
 @get('/')
 async def index(request):
     # foods = await Macro_Nutrition.find()
-    # 调用api来得到数据
+    # 调用api来得到数据，由于api要从数据库取数据，为了不阻塞服务器处理其他请求，这里需要异步
     foods = (await apis.getAllFoods())['foods']
     return {
         '__template__': 'foods.html',
@@ -29,7 +29,13 @@ async def index(request):
     }
 
 @get('/register')
-async def register():
+def register():
     return {
         '__template__': 'register.html'
+    }
+
+@get('/login')
+def login():
+    return {
+        '__template__': 'login.html'
     }
