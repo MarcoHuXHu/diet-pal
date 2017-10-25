@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from webframe import add_route, add_routes, add_static
-from middlewares import response_factory
+from middlewares import response_factory, authenticate
 import dao
 
 import os
@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 async def init(loop):
     path = os.getcwd()
-    app = web.Application(loop=loop, middlewares=[response_factory])
+    app = web.Application(loop=loop, middlewares=[response_factory, authenticate])
     await dao.create_connection(loop, db='diet_pal')
     # 初始化Jinja2，这里值得注意是设置文件路径的path参数
     init_jinja2(app, path=path+r'/templates')#,filters=dict(datetime=datetime_filter))

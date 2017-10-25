@@ -25,7 +25,8 @@ async def index(request):
     foods = (await apis.getAllFoods())['foods']
     return {
         '__template__': 'foods.html',
-        'foods': foods
+        'foods': foods,
+        '__user__':request.__user__
     }
 
 @get('/register')

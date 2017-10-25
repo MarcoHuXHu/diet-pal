@@ -43,16 +43,13 @@ async def registerUser(*, username, password, email, phone):
     # make session cookie:
     return make_session(user)
 
-@post('api/authenticate')
-async def authenticate(**kw):
-    if 'password' in kw:
-        password = kw['password']
-    else:
+@post('/api/authenticate')
+async def authenticate(*, useremail, password):
+    if not password:
         raise APIValueError('passwd', 'Invalid password.')
-    if 'username' in kw:
-        users = await User.find(where='username=?', args=[kw['username']])
-    else:
-        users = await User.find(where='email=?', args=[kw['email']])
+    users = await User.find(where='username=?', args=[useremail])
+    if len(users) == 0:
+        users = await User.find(where='email=?', args=[useremail])
     if len(users) == 0:
         raise APIValueError('User', 'Invalid User or password.')
     user = users[0]
@@ -78,8 +75,8 @@ def make_session(user):
 
 def user2cookie(user, expire):
     # 为了加强保密，这里的保存密码的key里面在加入一些其他信息
-    key = '{0}{1}{2}{3]'.format(user.user_id, user.password, expire, configs.session.secret)
-    L = [user.user_id, expire, hashlib.sha1(key.encode('utf-8')).hexdigest()]
+    key = '{0}{1}{2}{3}'.format(user.user_id, user.password, str(expire), configs.session.secret)
+    L = [user.user_id, str(expire), hashlib.sha1(key.encode('utf-8')).hexdigest()]
     return '-'.join(L)
 
 async def cookie2user(cookie_str):
@@ -89,14 +86,14 @@ async def cookie2user(cookie_str):
         L = cookie_str.split('-')
         if len(L) != 3:
             return None
-        user_id, expires, key = L
-        if int(expires) < time.time():
+        user_id, expire, key = L
+        if float(expire) < time.time():
             return None
-        user = await User.find(user_id)
+        user = await User.findByKey(user_id)
         if user is None:
             return None
         # 对从数据库中取出的user进行加密，然后与cookie中的信息对比
-        key2 = '%s-%s-%s-%s' % (user_id, user.password, expires, configs.session.secretY)
+        key2 = '{0}{1}{2}{3}'.format(user.user_id, user.password, str(expire), configs.session.secret)
         if key != hashlib.sha1(key2.encode('utf-8')).hexdigest():
             logging.info('invalid user')
             return None

@@ -3,8 +3,10 @@
 
 from aiohttp import web
 import json
+from configs import configs
 
 # 函数返回值转化为web.response对象（必要的一个middleware）
+# 当服务器接收到请求，先调用此中间件，其中调用RequestHandler并执行相应controller，然后中间件对结果封装成response
 async def response_factory(app, handler):
     async def response_middleware(request):
         r = await handler(request)
@@ -42,3 +44,32 @@ async def response_factory(app, handler):
         resp.content_type = 'text/plain;charset=utf-8'
         return resp
     return response_middleware
+
+
+# 对于每个URL处理函数，如果我们都去写解析cookie的代码，那会导致代码重复很多次。
+# 利用middle在处理URL之前，把cookie解析出来，并将登录用户绑定到request对象上，这样，后续的URL处理函数就可以直接拿到登录用户：
+# 这里采用middleware新写法
+
+from apis import cookie2user
+
+@web.middleware
+async def authenticate(request, handler):
+    # init and get cookie
+    request.__user__ = None
+    cookie_str = request.cookies.get(configs.session.cookie_name)
+    if cookie_str:
+        user = await cookie2user(cookie_str)
+        if user:
+            request.__user__ = user
+    return (await handler(request))
+
+# async def authenticate(app,handler):
+#     async def auth(request):
+#         request.__user__ = None #初始化
+#         cookie_str = request.cookies.get(configs.session.cookie_name)
+#         if cookie_str:
+#             user = await cookie2user(cookie_str)
+#             if user:
+#                 request.__user__ = user
+#         return await handler(request)
+#     return auth
