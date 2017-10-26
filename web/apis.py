@@ -59,6 +59,16 @@ async def authenticate(*, useremail, password):
     # authenticate OK, make session cookie:
     return make_session(user)
 
+@get('/logout')
+def logout(request):
+    r = web.HTTPFound('/')
+    r.set_cookie(configs.session.cookie_name, '-deleted-', max_age=0, httponly=True)
+    logging.info('user signed out.')
+    return r
+
+def checkadmin(request):
+    if not request.__user__:
+        raise APIPermissionError()
 
 from configs import configs
 import time
