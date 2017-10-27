@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from model import User, Macro_Nutrition
+from model import User, Food
 from webframe import get, post, APIError, APIPermissionError, APIResourceError, APIValueError
 from aiohttp import web
 import re, hashlib, json, logging
@@ -10,7 +10,7 @@ import re, hashlib, json, logging
 # 对于返回json的api，只需要规定return的是dict，在webframe的response_middleware中就会把结果转化成json格式
 @get('/api/foods')
 async def getAllFoods():
-    foods = await Macro_Nutrition.find()
+    foods = await Food.find()
     return dict(foods=foods)
 
 @get('/api/users')

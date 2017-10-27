@@ -1,5 +1,5 @@
 import asyncio, dao
-from dao import Model, IntegerField, StringField
+from dao import Model, IntegerField, StringField, FloatField
 
 class User(Model):
     __table__ = 'user'
@@ -10,17 +10,26 @@ class User(Model):
     email = StringField(column_type='varchar(50)')
     phone = StringField(column_type='varchar(50)')
 
-class Macro_Nutrition(Model):
-    __table__ = 'macro_nutrition'
+class Food(Model):
+    __table__ = 'food'
 
-    food_id = IntegerField(primary_key=True, column_type='varchar(50)')
+    food_id = IntegerField(primary_key=True, column_type='int')
     food_name = StringField(column_type='varchar(50)')
-    unit = StringField(column_type='int')
+    unit = FloatField(column_type='float')
     unit_name = StringField(column_type='varchar(50)')
-    energy = StringField(column_type='float')
-    carbohydrate = StringField(column_type='float')
-    protein = StringField(column_type='float')
-    fat = StringField(column_type='float')
+    energy = FloatField(column_type='float')
+    carbohydrate = FloatField(column_type='float')
+    protein = FloatField(column_type='float')
+    fat = FloatField(column_type='float')
+
+class Record(Model):
+    __table__ = 'record'
+
+    record = StringField(primary_key=True, column_type='int')
+    food_id = IntegerField(column_type='int')
+    user_id = StringField(column_type='varchar(50)')
+    amount = FloatField(column_type='float')
+    record_time = FloatField(column_type='float')
 
 
 def test():
