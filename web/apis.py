@@ -66,6 +66,14 @@ def logout(request):
     logging.info('user signed out.')
     return r
 
+@post('/api/addRecord')
+def addRecord(*, food_id, amount, time):
+    pass
+
+@get('/api/records')
+def get_records(request):
+    pass
+
 def checkadmin(request):
     if not request.__user__:
         raise APIPermissionError()
