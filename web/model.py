@@ -25,7 +25,7 @@ class Food(Model):
 class Record(Model):
     __table__ = 'record'
 
-    record = StringField(primary_key=True, column_type='int')
+    record_id = StringField(primary_key=True, column_type='varchar(50)', default=dao.generate_uid())
     food_id = IntegerField(column_type='int')
     user_id = StringField(column_type='varchar(50)')
     amount = FloatField(column_type='float')

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from model import User, Food
+from model import User, Food, Record
 from webframe import get, post, APIError, APIPermissionError, APIResourceError, APIValueError
 from aiohttp import web
 import re, hashlib, json, logging
@@ -20,7 +20,7 @@ async def getAllUsers():
         user.password = '******'
     return dict(users=users)
 
-@post('/api/registerUser')
+@post('/api/user')
 async def registerUser(*, username, password, email, phone):
     _RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
     _RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
@@ -38,7 +38,8 @@ async def registerUser(*, username, password, email, phone):
     if len(users) > 0:
         raise APIError('register:failed', '', 'Email or Username is already in use.')
     # 虽然传过来的password已经是加密过的了，这里统一在做一次摘要算法加密
-    user = User(username=username, email=email, password=hashlib.sha1(password.encode('utf-8')).hexdigest(), phone=phone)
+    user = User(username=username, email=email,
+                password=hashlib.sha1(password.encode('utf-8')).hexdigest(), phone=phone)
     await user.save()
     # make session cookie:
     return make_session(user)
@@ -66,13 +67,26 @@ def logout(request):
     logging.info('user signed out.')
     return r
 
-@post('/api/addRecord')
-def addRecord(*, food_id, amount, time):
-    pass
+@post('/api/record')
+async def addRecord(request, *, food_id, amount, record_time):
+    checkadmin(request)
+    food_id = food_id.strip()
+    amount = float(amount)
+    if not record_time:
+        record_time = time.time()
+    if not food_id:
+        raise APIValueError('food', 'food must not be empty')
+    if not amount or amount<0.00001:
+        raise APIValueError('amount', 'amount must not be empty')
+    record = Record(food_id=food_id, user_id=request.__user__.user_id, amount=amount, record_time=record_time)
+    await record.save()
+    return record
 
 @get('/api/records')
-def get_records(request):
-    pass
+async def get_records(request):
+    checkadmin(request)
+    records = await Record.find(where='user_id=?', args=[request.__user__.user_id])
+    return dict(records=records)
 
 def checkadmin(request):
     if not request.__user__:

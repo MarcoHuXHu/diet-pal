@@ -15,7 +15,7 @@ configs = {
     'session': {
         'cookie_name': 'DietPal',
         'secret': 'jh6iuhbv1',
-        'expire': 36
+        'expire': 3600
     }
 }
 

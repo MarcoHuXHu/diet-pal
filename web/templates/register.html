@@ -43,7 +43,7 @@ $(function () {
                 if (this.password1 !== this.password2) {
                     return $form.showFormError('两次输入的口令不一致');
                 }
-                $form.postJSON('/api/registerUser', {
+                $form.postJSON('/api/user', {
                     username: this.name.trim(),
                     password: CryptoJS.SHA1(this.password1).toString(),
                     email: this.email.trim().toLowerCase(),
