@@ -55,6 +55,8 @@ from apis import cookie2user
 @web.middleware
 async def authenticate(request, handler):
     # init and get cookie
+    # 事实上每一次请求都会从cookie中拿uid，然后去数据库里面找一次user，然后赋值给request.__user__
+    # 所以即使是用api登录
     request.__user__ = None
     cookie_str = request.cookies.get(configs.session.cookie_name)
     if cookie_str:

@@ -13,6 +13,27 @@ async def getAllFoods():
     foods = await Food.find()
     return dict(foods=foods)
 
+@post('/api/record')
+async def addRecord(request, *, food_id, amount, record_time):
+    check_admin(request)
+    food_id = food_id.strip()
+    amount = float(amount)
+    if not record_time:
+        record_time = time.time()
+    if not food_id:
+        raise APIValueError('food', 'food must not be empty')
+    if not amount or amount<0.00001:
+        raise APIValueError('amount', 'amount must not be empty')
+    record = Record(food_id=food_id, user_id=request.__user__.user_id, amount=amount, record_time=record_time)
+    await record.save()
+    return record
+
+@get('/api/records')
+async def get_records(request):
+    check_admin(request)
+    records = await Record.find(where='user_id=?', args=[request.__user__.user_id])
+    return dict(records=records)
+
 @get('/api/users')
 async def getAllUsers():
     users = await User.find()
@@ -47,16 +68,16 @@ async def registerUser(*, username, password, email, phone):
 @post('/api/authenticate')
 async def authenticate(*, useremail, password):
     if not password:
-        raise APIValueError('passwd', 'Invalid password.')
+        raise APIValueError('password', 'Invalid password.')
     users = await User.find(where='username=?', args=[useremail])
     if len(users) == 0:
         users = await User.find(where='email=?', args=[useremail])
     if len(users) == 0:
-        raise APIValueError('User', 'Invalid User or password.')
+        raise APIValueError('User', 'Invalid user or password.')
     user = users[0]
     key = hashlib.sha1(password.encode('utf-8')).hexdigest()
     if key != user.password:
-        raise APIValueError('User', 'Invalid User or password.')
+        raise APIValueError('User', 'Invalid user or password.')
     # authenticate OK, make session cookie:
     return make_session(user)
 
@@ -67,28 +88,7 @@ def logout(request):
     logging.info('user signed out.')
     return r
 
-@post('/api/record')
-async def addRecord(request, *, food_id, amount, record_time):
-    checkadmin(request)
-    food_id = food_id.strip()
-    amount = float(amount)
-    if not record_time:
-        record_time = time.time()
-    if not food_id:
-        raise APIValueError('food', 'food must not be empty')
-    if not amount or amount<0.00001:
-        raise APIValueError('amount', 'amount must not be empty')
-    record = Record(food_id=food_id, user_id=request.__user__.user_id, amount=amount, record_time=record_time)
-    await record.save()
-    return record
-
-@get('/api/records')
-async def get_records(request):
-    checkadmin(request)
-    records = await Record.find(where='user_id=?', args=[request.__user__.user_id])
-    return dict(records=records)
-
-def checkadmin(request):
+def check_admin(request):
     if not request.__user__:
         raise APIPermissionError()
 
@@ -100,7 +100,7 @@ def make_session(user):
     r = web.Response()
     expire = configs.session.expire
     r.set_cookie(configs.session.cookie_name, user2cookie(user, time.time() + expire), max_age=expire, httponly=True)
-    user.passwd = '******'
+    user.password = '******'
     r.content_type = 'application/json'
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
