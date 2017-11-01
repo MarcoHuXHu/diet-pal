@@ -40,3 +40,12 @@ def login():
     return {
         '__template__': 'login.html'
     }
+
+@get('records')
+async def records(request):
+    records = (await apis.get_records(request))['records']
+    return {
+        '__template__': 'records.html',
+        'records': records,
+        '__user__': request.__user__
+    }
