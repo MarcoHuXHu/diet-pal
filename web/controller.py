@@ -19,7 +19,13 @@ def hello(request, **kw):
     return body
 
 @get('/')
-async def index(request):
+def index(request):
+    return {
+        '__template__': 'index.html'
+    }
+
+@get('/home')
+async def home(request):
     # foods = await Macro_Nutrition.find()
     # 调用api来得到数据，由于api要从数据库取数据，为了不阻塞服务器处理其他请求，这里需要异步
     foods = (await apis.getAllFoods())['foods']
@@ -41,7 +47,7 @@ def login():
         '__template__': 'login.html'
     }
 
-@get('records')
+@get('/records')
 async def records(request):
     records = (await apis.get_records(request))['records']
     return {
