@@ -1,5 +1,6 @@
-import asyncio, dao
-from dao import Model, IntegerField, StringField, FloatField
+import asyncio, time
+import dao
+from dao import Model, IntegerField, StringField, FloatField, TextField
 
 class User(Model):
     __table__ = 'user'
@@ -9,6 +10,29 @@ class User(Model):
     password = StringField(column_type='varchar(50)')
     email = StringField(column_type='varchar(50)')
     phone = StringField(column_type='varchar(50)')
+
+class Blog(Model):
+    __table__ = 'blogs'
+
+    id = StringField(primary_key=True, default=dao.generate_uid(), column_type='varchar(50)')
+    user_id = StringField(column_type='varchar(50)')
+    user_name = StringField(column_type='varchar(50)')
+    user_image = StringField(column_type='varchar(500)')
+    name = StringField(column_type='varchar(50)')
+    summary = StringField(column_type='varchar(200)')
+    content = TextField()
+    created_at = FloatField(default=time.time)
+
+class Comment(Model):
+    __table__ = 'comments'
+
+    id = StringField(primary_key=True, default=dao.generate_uid(), column_type='varchar(50)')
+    blog_id = StringField(column_type='varchar(50)')
+    user_id = StringField(column_type='varchar(50)')
+    user_name = StringField(column_type='varchar(50)')
+    user_image = StringField(column_type='varchar(500)')
+    content = TextField()
+    created_at = FloatField(default=time.time)
 
 class Food(Model):
     __table__ = 'food'
